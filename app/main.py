@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
-from app.routers import sentiment_routes, chat_routes, gemini_routes
+from app.routers import sentiment_routes, chat_routes, gemini_routes, review_summary_routes
 from app.core.exceptions import APIError, api_error_handler, RequestValidationError, validation_error_handler, global_exception_handler
 from app.services.sentiment_service import get_sentiment_service
 
@@ -29,6 +29,7 @@ app = FastAPI(
 app.include_router(sentiment_routes.router, prefix="/api", tags=["Sentiment Analysis"])
 app.include_router(chat_routes.router, prefix="/api", tags=["Chat"])
 app.include_router(gemini_routes.router, prefix="/api", tags=["Gemini Chat"])
+app.include_router(review_summary_routes.router, prefix="/api", tags=["Review Summary"])
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
