@@ -56,7 +56,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 ### 4. 서버 실행
 ```bash
-cd /Users/yoon-dong-gyu/kakao_bootcamp/1.Wedding_OS_Project/3.Wedding_OS_model
+cd /Users//1.Wedding_OS_Project/3.Wedding_OS_model
 
 # 서버 실행 (기본 포트: 8502)
 conda run -n env_python310 python -m uvicorn app.main:app --host 0.0.0.0 --port 8502
