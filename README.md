@@ -221,3 +221,45 @@ curl -X POST "http://localhost:8502/api/gemini/chat" \
 - `.env` 파일에 `GEMINI_API_KEY`가 설정되어 있는지 확인
 - API 키가 유효한지 확인
 - `GEMINI_SETUP.md` 참고
+
+## Docker 사용법
+
+### 개발 환경 실행
+
+```bash
+# 개발 모드로 빌드 및 실행
+docker build --target dev -t wedding-model:dev .
+docker run -p 8001:8001 -v $(pwd):/app --env-file .env wedding-model:dev
+```
+
+또는 docker-compose 사용:
+```bash
+# 프로젝트 루트에서
+docker-compose up model
+```
+
+### 프로덕션 빌드 및 실행
+
+```bash
+# 프로덕션 모드로 빌드
+docker build --target prod -t wedding-model:prod .
+
+# 실행
+docker run -p 8001:8001 --env-file .env wedding-model:prod
+```
+
+### 환경 변수 설정
+
+`.env.example` 파일을 참고하여 환경 변수를 설정하세요.
+
+**필수 환경 변수**:
+- `GEMINI_API_KEY`: Google Gemini API 키 (https://makersuite.google.com/app/apikey)
+
+### 모델 파일
+
+ML 모델 파일(`keras_model.h5` 등)은 Docker 이미지에 포함되거나 볼륨으로 마운트할 수 있습니다.
+
+```bash
+# 볼륨 마운트 예시
+docker run -p 8001:8001 -v $(pwd)/assets:/app/assets --env-file .env wedding-model:dev
+```
