@@ -1,13 +1,22 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.routers import sentiment_routes, chat_routes, gemini_routes, review_summary_routes
+from app.routers import predict_routes, sentiment_routes, chat_routes, gemini_routes, invitation_routes, image_generation_routes
 from app.core.exceptions import APIError, api_error_handler, RequestValidationError, validation_error_handler, global_exception_handler
+from app.services.model_service import load_ai_model
 from app.services.sentiment_service import get_sentiment_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Load image classification model on startup
+    try:
+        load_ai_model()
+        print("✅ Image classification model loaded")
+    except Exception as e:
+        print(f"⚠️  WARNING: Failed to load image classification model: {e}")
+    
     # Load sentiment analysis model on startup
     try:
         get_sentiment_service()
@@ -21,15 +30,26 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AI Model Serving API",
     version="1.0.0",
-    description="감성 분석 모델과 LLM 채팅 모델을 서빙하는 FastAPI 애플리케이션",
+    description="Keras 이미지 분류 모델과 감성 분석 모델을 서빙하는 FastAPI 애플리케이션",
     lifespan=lifespan
 )
 
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Register Routers
+app.include_router(predict_routes.router, prefix="/api", tags=["Image Classification"])
 app.include_router(sentiment_routes.router, prefix="/api", tags=["Sentiment Analysis"])
 app.include_router(chat_routes.router, prefix="/api", tags=["Chat"])
 app.include_router(gemini_routes.router, prefix="/api", tags=["Gemini Chat"])
-app.include_router(review_summary_routes.router, prefix="/api", tags=["Review Summary"])
+app.include_router(invitation_routes.router, prefix="/api", tags=["Invitation"])
+app.include_router(image_generation_routes.router, prefix="/api", tags=["Image Generation"])
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 

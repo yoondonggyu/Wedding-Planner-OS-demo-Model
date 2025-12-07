@@ -1,15 +1,10 @@
 """
 리뷰 요약 서비스 - 감성 분석 + Gemini 요약
 """
-import os
 from typing import Dict, Any, List
-from dotenv import load_dotenv
 from google import genai
+from app.core.config import GEMINI_API_KEY, GEMINI_MODEL
 from app.services.sentiment_service import get_sentiment_service
-
-load_dotenv()
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
 async def summarize_reviews_with_sentiment(
@@ -202,7 +197,7 @@ async def _generate_summary_with_gemini(
 요약은 200자 이내로 간결하게 작성해주세요. 한글로만 답변해주세요."""
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt
         )
         

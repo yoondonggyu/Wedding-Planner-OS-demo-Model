@@ -147,3 +147,6 @@ async def gemini_chat_simple(request: ChatRequest):
         "model": getattr(request, 'model', 'gemini-2.5-flash')
     }
 
+
+
+

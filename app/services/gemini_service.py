@@ -1,20 +1,10 @@
 """
 Gemini 2.5 Flash 서비스 - WebSocket 스트리밍 지원
 """
-import os
 import asyncio
 from typing import AsyncGenerator
-from dotenv import load_dotenv
 from google import genai
-
-load_dotenv()
-
-# Google API 키 확인
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GEMINI_API_KEY:
-    print("⚠️  WARNING: GEMINI_API_KEY가 설정되지 않았습니다.")
-    print("   .env 파일에 GEMINI_API_KEY를 추가해주세요.")
+from app.core.config import GEMINI_API_KEY, GEMINI_MODEL
 
 
 async def generate_gemini_stream(
@@ -57,7 +47,7 @@ async def generate_gemini_stream(
         
         # 공식 문서 방식: generate_content_stream 사용
         response = client.models.generate_content_stream(
-            model=model,
+            model=model or GEMINI_MODEL,
             contents=contents
         )
         
@@ -109,7 +99,7 @@ async def generate_gemini_simple(
                 contents = "\n".join(history_messages) + "\n" + message
         
         response = client.models.generate_content(
-            model=model,
+            model=model or GEMINI_MODEL,
             contents=contents
         )
         
