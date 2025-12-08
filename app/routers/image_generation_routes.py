@@ -31,6 +31,8 @@ class ImageModifyRequest(BaseModel):
     base_image_b64: str
     modification_prompt: str  # 수정 요청 (영어)
     model: str = "flux"  # flux 또는 gemini
+    person_image_b64: Optional[str] = None  # 인물 사진 (base64)
+    style_images_b64: Optional[list[str]] = None  # 스타일 참고 사진 (base64 리스트)
 
 
 @router.post("/image/generate")
