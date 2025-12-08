@@ -46,7 +46,7 @@ async def generate_invitation_image(request: ImageGenerateRequest):
     - sd15: Stable Diffusion 1.5 (무료, 텍스트만)
     - realistic-vision: Realistic Vision V5.1 (무료, 사실적인 이미지, 텍스트만)
     - dreamshaper: DreamShaper (무료, 다양한 스타일, 텍스트만)
-    - gemini: Gemini 3.0 Pro (유료, 텍스트 또는 이미지+텍스트) - 미구현
+    - gemini: gemini-3-pro-image-preview (유료, 텍스트 기반 이미지 생성)
     
     Image-to-Image 지원 모델:
     - flux: FLUX.2-dev만 지원
@@ -117,13 +117,22 @@ async def generate_invitation_image(request: ImageGenerateRequest):
             image_b64 = await generate_image_dreamshaper(request.prompt)
             
         elif request.model == "gemini":
-            # Gemini 3.0 Pro (유료)
+            # gemini-3-pro-image-preview (유료, text-to-image 지원)
             try:
                 image_b64 = await generate_image_gemini3(request.prompt, base_image)
-            except NotImplementedError as e:
+            except ValueError as e:
+                # API 키 등 설정 오류
                 raise HTTPException(
-                    status_code=501,
-                    detail=str(e)
+                    status_code=400,
+                    detail=f"Gemini 이미지 생성 설정 오류: {str(e)}"
+                )
+            except Exception as e:
+                # 기타 오류
+                error_msg = str(e)
+                print(f"❌ Gemini 이미지 생성 실패: {type(e).__name__}: {error_msg}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Gemini 이미지 생성 실패: {error_msg}"
                 )
         else:
             raise HTTPException(
@@ -152,7 +161,7 @@ async def modify_invitation_image(request: ImageModifyRequest):
     
     Models:
     - flux: FLUX.2-dev (무료, fal-ai provider)
-    - gemini: Gemini 3.0 Pro (유료) - 미구현
+    - gemini: gemini-3-pro-image-preview (유료, 텍스트 기반 이미지 생성)
     """
     try:
         # base64 디코딩
@@ -163,13 +172,14 @@ async def modify_invitation_image(request: ImageModifyRequest):
             # FLUX.2-dev를 사용한 이미지 수정
             image_b64 = await generate_image_flux_image_to_image(base_image, request.modification_prompt)
         elif request.model == "gemini":
-            # Gemini 3.0 Pro (유료)
+            # gemini-3-pro-image-preview (유료, image-to-image는 프롬프트 기반으로 대체)
             try:
+                # gemini-3-pro-image-preview는 image-to-image를 직접 지원하지 않으므로 프롬프트 기반 생성
                 image_b64 = await modify_image_gemini3(base_image, request.modification_prompt)
-            except NotImplementedError as e:
+            except Exception as e:
                 raise HTTPException(
-                    status_code=501,
-                    detail=str(e)
+                    status_code=500,
+                    detail=f"Gemini 이미지 수정 실패: {str(e)}"
                 )
         else:
             raise HTTPException(
@@ -261,10 +271,10 @@ async def get_available_models():
             "premium": [
                 {
                     "id": "gemini",
-                    "name": "Gemini 3.0 Pro",
+                    "name": "Gemini 3 Pro Image Preview",
                     "provider": "google",
-                    "supports_image_to_image": True,
-                    "description": "유료 서비스, 텍스트 및 이미지→이미지 지원 (미구현)"
+                    "supports_image_to_image": False,
+                    "description": "유료 서비스, gemini-3-pro-image-preview 모델 사용"
                 }
             ]
         }

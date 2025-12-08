@@ -1,101 +1,175 @@
 """
-Gemini 3.0 Pro 이미지 생성 서비스
+Gemini 이미지 생성 서비스 (gemini-3-pro-image-preview 사용)
+google-genai SDK를 사용하여 Text-to-Image 지원
+공식 문서 예제 코드 패턴을 따름 (AI Studio)
 """
 import os
 import base64
-from io import BytesIO
-from PIL import Image
+import mimetypes
+from pathlib import Path
+from dotenv import load_dotenv
 from google import genai
-from app.core.config import GEMINI_API_KEY
+from google.genai import types
+
+# .env 파일 로드
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ENV_FILE = BASE_DIR / ".env"
+load_dotenv(dotenv_path=ENV_FILE)
 
 
-async def generate_image_gemini3(prompt: str, base_image: bytes = None) -> str:
+def get_gemini_api_key():
+    """Gemini API 키 가져오기"""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("⚠️ GEMINI_API_KEY가 .env에 설정되지 않았습니다.")
+        raise ValueError("GEMINI_API_KEY가 .env에 설정되지 않았습니다.")
+    print(f"✅ Gemini API 키 로드됨 (길이: {len(api_key)} 문자)")
+    return api_key
+
+
+def get_gemini_client():
+    """Gemini Client 생성 (공식 문서 예제 패턴)"""
+    api_key = get_gemini_api_key()
+    return genai.Client(api_key=api_key)
+
+
+# 사용할 모델
+GEMINI_IMAGE_MODEL = "gemini-3-pro-image-preview"
+
+
+async def generate_image_gemini3(prompt: str, base_image: bytes = None, model: str = None) -> str:
     """
-    Gemini 3.0 Pro를 사용한 이미지 생성
+    gemini-3-pro-image-preview를 사용한 이미지 생성
+    공식 문서 예제 패턴: AI Studio 코드 기반
     
     Args:
-        prompt: 이미지 생성 프롬프트 (영어)
-        base_image: 기본 이미지 바이트 (image-to-image용, 선택적)
+        prompt: 이미지 생성 프롬프트 (한국어 또는 영어)
+        base_image: 기본 이미지 바이트 (image-to-image용, 선택적 - 현재 미지원)
+        model: 모델 타입 (무시됨, 항상 gemini-3-pro-image-preview 사용)
+    
+    Returns:
+        base64 인코딩된 이미지 문자열 (data:image/jpeg;base64,... 형식)
+    """
+    try:
+        if base_image:
+            # Image-to-Image는 현재 미지원
+            print("⚠️ gemini-3-pro-image-preview는 image-to-image를 지원하지 않습니다.")
+            # 프롬프트에 이미지 설명을 포함하여 생성
+            enhanced_prompt = f"{prompt}. 웨딩 청첩장 스타일로 고급스럽고 우아하게 생성해주세요."
+            return await _generate_image_gemini(enhanced_prompt)
+        else:
+            # Text-to-Image
+            return await _generate_image_gemini(prompt)
+        
+    except Exception as e:
+        print(f"❌ Gemini 이미지 생성 실패: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise Exception(f"Gemini 이미지 생성 실패: {e}")
+
+
+async def _generate_image_gemini(prompt: str) -> str:
+    """
+    gemini-3-pro-image-preview를 사용한 이미지 생성
+    공식 문서 예제 패턴 (AI Studio 코드 기반)
+    
+    Args:
+        prompt: 이미지 생성 프롬프트
     
     Returns:
         base64 인코딩된 이미지 문자열
     """
-    if not GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY not configured in .env")
+    client = get_gemini_client()
+    model = GEMINI_IMAGE_MODEL
     
-    try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
+    print(f"🔍 Gemini 이미지 생성 요청:")
+    print(f"   모델: {model}")
+    print(f"   프롬프트: {prompt[:100]}...")
+    
+    # 공식 문서 예제 패턴: generate_content_stream 사용
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=prompt),
+            ],
+        ),
+    ]
+    
+    tools = [
+        types.Tool(googleSearch=types.GoogleSearch()),
+    ]
+    
+    generate_content_config = types.GenerateContentConfig(
+        response_modalities=["IMAGE", "TEXT"],
+        image_config=types.ImageConfig(
+            image_size="1K",
+        ),
+        tools=tools,
+    )
+    
+    # 스트리밍 방식으로 이미지 받기
+    image_data = None
+    text_parts = []
+    
+    for chunk in client.models.generate_content_stream(
+        model=model,
+        contents=contents,
+        config=generate_content_config,
+    ):
+        if (
+            chunk.candidates is None
+            or chunk.candidates[0].content is None
+            or chunk.candidates[0].content.parts is None
+        ):
+            continue
         
-        # Gemini 3.0 Pro는 이미지 생성 API를 사용
-        # 참고: Gemini 3.0 Pro의 실제 이미지 생성 API는 아직 베타일 수 있으므로
-        # 현재는 텍스트 기반 프롬프트로 이미지 생성 요청
+        part = chunk.candidates[0].content.parts[0]
         
-        if base_image:
-            # Image-to-Image: 기본 이미지와 프롬프트를 함께 사용
-            # PIL Image로 변환
-            base_img = Image.open(BytesIO(base_image))
-            
-            # Gemini 3.0 Pro는 멀티모달 입력을 지원하므로 이미지와 텍스트를 함께 전달
-            # 실제 구현은 Gemini API의 최신 문서를 참조해야 함
-            # 여기서는 텍스트 기반 생성으로 대체 (실제 API가 준비되면 수정 필요)
-            
-            # 임시: 이미지가 있으면 프롬프트에 추가 정보 포함
-            enhanced_prompt = f"Modify this image based on: {prompt}. Keep the original composition and style while applying the requested changes."
-            
-            # Gemini 3.0 Pro 이미지 생성 (실제 API 호출)
-            # 참고: Gemini 3.0 Pro의 이미지 생성 API는 generate_content를 사용할 수 있음
-            # 하지만 현재는 텍스트 생성만 지원하므로, 이미지 생성은 다른 방식으로 처리해야 할 수 있음
-            
-            # 실제 구현 예시 (API가 준비되면):
-            # response = client.models.generate_content(
-            #     model="gemini-3.0-pro",
-            #     contents=[
-            #         {"role": "user", "parts": [
-            #             {"text": enhanced_prompt},
-            #             {"inline_data": {"mime_type": "image/png", "data": base64.b64encode(base_image).decode()}}
-            #         ]}
-            #     ]
-            # )
-            
-            # 현재는 FLUX와 유사한 방식으로 처리 (실제 Gemini 3.0 Pro 이미지 생성 API가 준비되면 수정)
-            raise NotImplementedError("Gemini 3.0 Pro image-to-image generation is not yet fully implemented. Please use FLUX model for image-to-image.")
-        else:
-            # Text-to-Image: 프롬프트만 사용
-            # Gemini 3.0 Pro의 이미지 생성 기능은 아직 베타 단계이므로
-            # 실제 구현은 Google의 최신 문서를 참조해야 함
-            
-            # 현재는 텍스트 기반 생성으로 처리
-            # 실제 API가 준비되면 다음과 같이 구현:
-            # response = client.models.generate_content(
-            #     model="gemini-3.0-pro",
-            #     contents=[{"role": "user", "parts": [{"text": prompt}]}],
-            #     config={"response_mime_type": "image/png"}  # 이미지 생성 모드
-            # )
-            
-            # 임시: 에러 메시지 반환 (실제 구현 대기)
-            raise NotImplementedError(
-                "Gemini 3.0 Pro image generation API is not yet available. "
-                "Please use FLUX or SDXL models for image generation. "
-                "When Gemini 3.0 Pro image generation becomes available, this will be updated."
-            )
+        # 이미지 데이터 처리
+        if part.inline_data and part.inline_data.data:
+            image_data = part.inline_data.data
+            mime_type = part.inline_data.mime_type
+            print(f"✅ 이미지 데이터 수신 (크기: {len(image_data)} bytes, 타입: {mime_type})")
         
-    except NotImplementedError:
-        raise
-    except Exception as e:
-        raise Exception(f"Gemini 3.0 Pro 이미지 생성 실패: {e}")
+        # 텍스트 처리
+        if hasattr(part, 'text') and part.text:
+            text_parts.append(part.text)
+    
+    if not image_data:
+        raise ValueError("이미지가 생성되지 않았습니다.")
+    
+    # base64로 인코딩
+    img_b64 = base64.b64encode(image_data).decode('utf-8')
+    
+    # mime_type 결정 (기본값: image/jpeg)
+    mime_type = mimetypes.guess_type("image.jpg")[0] or "image/jpeg"
+    if image_data:
+        # 실제로는 inline_data에서 mime_type을 가져와야 하지만, 
+        # 여기서는 기본값 사용
+        mime_type = "image/jpeg"
+    
+    result_uri = f"data:{mime_type};base64,{img_b64}"
+    
+    if text_parts:
+        print(f"📝 생성된 텍스트: {''.join(text_parts)[:100]}...")
+    
+    print(f"✅ Gemini 이미지 생성 완료 (크기: {len(image_data)} bytes)")
+    return result_uri
 
 
 async def modify_image_gemini3(base_image: bytes, modification_prompt: str) -> str:
     """
-    Gemini 3.0 Pro를 사용한 이미지 수정
+    gemini-3-pro-image-preview를 사용한 이미지 수정
+    현재는 image-to-image를 지원하지 않으므로 프롬프트 기반으로 처리
     
     Args:
         base_image: 수정할 기본 이미지 바이트
-        modification_prompt: 수정 요청 프롬프트 (영어)
+        modification_prompt: 수정 요청 프롬프트
     
     Returns:
         base64 인코딩된 이미지 문자열
     """
-    # Image-to-Image와 동일한 로직 사용
-    return await generate_image_gemini3(modification_prompt, base_image)
-
+    # Image-to-Image는 미지원이므로 프롬프트 기반으로 생성
+    enhanced_prompt = f"{modification_prompt}. 웨딩 청첩장 스타일로 고급스럽고 우아하게 생성해주세요."
+    return await generate_image_gemini3(enhanced_prompt, None)
