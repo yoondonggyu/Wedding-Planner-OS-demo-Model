@@ -13,19 +13,19 @@ async def lifespan(app: FastAPI):
     # TensorFlow/Keras 모델 로딩 (Python 3.13 호환성 이슈로 선택적 로딩)
     import sys
     if sys.version_info < (3, 13):
-        # Load image classification model on startup
-        try:
-            load_ai_model()
-            print("✅ Image classification model loaded")
-        except Exception as e:
-            print(f"⚠️  WARNING: Failed to load image classification model: {e}")
-        
-        # Load sentiment analysis model on startup
-        try:
-            get_sentiment_service()
-            print("✅ Sentiment analysis model loaded")
-        except Exception as e:
-            print(f"⚠️  WARNING: Failed to load sentiment analysis model: {e}")
+    # Load image classification model on startup
+    try:
+        load_ai_model()
+        print("✅ Image classification model loaded")
+    except Exception as e:
+        print(f"⚠️  WARNING: Failed to load image classification model: {e}")
+    
+    # Load sentiment analysis model on startup
+    try:
+        get_sentiment_service()
+        print("✅ Sentiment analysis model loaded")
+    except Exception as e:
+        print(f"⚠️  WARNING: Failed to load sentiment analysis model: {e}")
     else:
         print("⚠️ Python 3.13 감지: TensorFlow 호환성 문제로 모델 로딩 건너뜀")
         print("   이미지 분류/감성 분석 기능은 비활성화됩니다.")
